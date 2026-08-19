@@ -1,4 +1,4 @@
-{
+﻿{
   "name": "forum-api",
   "version": "1.0.0",
   "description": "Forum API dengan Express, PostgreSQL, automation testing, dan Clean Architecture",
@@ -10,8 +10,9 @@
     "test": "vitest --run",
     "test:watch": "vitest --watch",
     "test:coverage": "vitest --run --coverage",
-    "migrate": "node-pg-migrate",
-    "migrate:test": "node-pg-migrate --envPath .test.env",
+    "migrate": "node-pg-migrate up",
+    "migrate:test": "node-pg-migrate up --envPath .test.env",
+    "migrate:down": "node-pg-migrate down",
     "lint": "eslint ./"
   },
   "keywords": [],

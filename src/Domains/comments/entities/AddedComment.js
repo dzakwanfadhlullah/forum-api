@@ -1,0 +1,13 @@
+class AddedComment {
+  constructor({ id, content, owner }) {
+    if (!id || !content || !owner) throw new Error('ADDED_COMMENT.NOT_CONTAIN_NEEDED_PROPERTY');
+    if ([id, content, owner].some((value) => typeof value !== 'string')) {
+      throw new Error('ADDED_COMMENT.NOT_MEET_DATA_TYPE_SPECIFICATION');
+    }
+    this.id = id;
+    this.content = content;
+    this.owner = owner;
+  }
+}
+
+export default AddedComment;

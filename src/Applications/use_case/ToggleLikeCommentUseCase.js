@@ -7,7 +7,7 @@
 
   async execute(threadId, commentId, userId) {
     await this._threadRepository.verifyThreadExists(threadId);
-    await this._commentRepository.verifyCommentExists(commentId);
+    await this._commentRepository.verifyCommentExists(commentId, threadId);
     const isLiked = await this._likeRepository.verifyCommentLikeExists(commentId, userId);
     if (isLiked) {
       await this._likeRepository.unlikeComment(commentId, userId);

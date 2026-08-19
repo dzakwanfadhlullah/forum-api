@@ -32,7 +32,7 @@ describe('ToggleLikeCommentUseCase', () => {
 
     // Assert
     expect(mockThreadRepository.verifyThreadExists).toHaveBeenCalledWith(threadId);
-    expect(mockCommentRepository.verifyCommentExists).toHaveBeenCalledWith(commentId);
+    expect(mockCommentRepository.verifyCommentExists).toHaveBeenCalledWith(commentId, threadId);
     expect(mockLikeRepository.verifyCommentLikeExists).toHaveBeenCalledWith(commentId, userId);
     expect(mockLikeRepository.likeComment).toHaveBeenCalledWith(commentId, userId);
     expect(mockLikeRepository.unlikeComment).not.toHaveBeenCalled();
@@ -65,7 +65,7 @@ describe('ToggleLikeCommentUseCase', () => {
 
     // Assert
     expect(mockThreadRepository.verifyThreadExists).toHaveBeenCalledWith(threadId);
-    expect(mockCommentRepository.verifyCommentExists).toHaveBeenCalledWith(commentId);
+    expect(mockCommentRepository.verifyCommentExists).toHaveBeenCalledWith(commentId, threadId);
     expect(mockLikeRepository.verifyCommentLikeExists).toHaveBeenCalledWith(commentId, userId);
     expect(mockLikeRepository.unlikeComment).toHaveBeenCalledWith(commentId, userId);
     expect(mockLikeRepository.likeComment).not.toHaveBeenCalled();

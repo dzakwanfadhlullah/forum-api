@@ -11,6 +11,14 @@ const createServer = async (container) => {
   // Middleware for parsing JSON
   app.use(express.json());
 
+  // Root health check endpoint
+  app.get('/', (req, res) => {
+    res.status(200).json({
+      status: 'success',
+      message: 'Forum API Server is running successfully!',
+    });
+  });
+
   // Register routes
   app.use('/users', users(container));
   app.use('/authentications', authentications(container));

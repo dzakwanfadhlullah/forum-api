@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "forum-api",
   "version": "1.0.0",
   "description": "Forum API dengan Express, PostgreSQL, automation testing, dan Clean Architecture",

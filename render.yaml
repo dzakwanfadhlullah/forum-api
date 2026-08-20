@@ -1,0 +1,28 @@
+﻿services:
+  - type: web
+    name: forum-api
+    runtime: node
+    plan: free
+    region: singapore
+    buildCommand: npm install && npm run migrate
+    startCommand: npm start
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: ACCESS_TOKEN_KEY
+        generateValue: true
+      - key: REFRESH_TOKEN_KEY
+        generateValue: true
+      - key: ACCESS_TOKEN_AGE
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: forumapi-db
+          property: connectionString
+
+databases:
+  - name: forumapi-db
+    plan: free
+    region: singapore
+    databaseName: forumapi
+    user: developer

@@ -1,71 +1,101 @@
 ﻿/**
- * Rate Limiter Middleware
- * Simulates Nginx `limit_req_zone $binary_remote_addr zone=threads_limit:10m rate=90r/m burst=10 nodelay;`
- * Rate: 90 requests / minute (1.5 req/sec)
+ * Rate Limiter Middleware for /threads and all its child routes
+ * Matches Nginx configuration: `limit_req_zone $binary_remote_addr zone=threads_limit:10m rate=90r/m burst=10 nodelay;`
+ * Rate: 90 requests per minute (0.0015 requests per ms)
  * Burst: 10 requests
- * Applied to `/threads` and all its child routes (/threads/:id, /threads/:id/comments, /threads/:id/comments/:id/replies, /threads/:id/comments/:id/likes)
+ * Applied to `/threads` and all child routes (/threads, /threads/:id, /threads/:id/comments, etc.)
  */
 
-class NginxLeakyBucket {
-  constructor({ ratePerMinute = 90, burst = 10 } = {}) {
-    this._ratePerMs = ratePerMinute / (60 * 1000); // 0.0015 tokens per ms
-    this._burst = burst;
-    this._clients = new Map(); // ip -> { tokens, lastTime }
+import pool from '../../../Infrastructures/database/postgres/pool.js';
 
-    // Periodic cleanup every 5 minutes to prevent memory leak
-    setInterval(() => {
-      const now = Date.now();
-      for (const [ip, record] of this._clients.entries()) {
-        if (now - record.lastTime > 60 * 1000) {
-          this._clients.delete(ip);
-        }
-      }
-    }, 5 * 60 * 1000).unref();
-  }
+let isTableInitialized = false;
 
-  consume(ip) {
-    const now = Date.now();
-    let record = this._clients.get(ip);
-    if (!record) {
-      record = { tokens: 0, lastTime: now };
-      this._clients.set(ip, record);
+async function ensureRateLimitTable() {
+  if (!isTableInitialized) {
+    try {
+      await pool.query(`
+        CREATE TABLE IF NOT EXISTS rate_limits (
+          ip VARCHAR(100) PRIMARY KEY,
+          tokens NUMERIC NOT NULL,
+          last_time BIGINT NOT NULL
+        );
+      `);
+      isTableInitialized = true;
+    } catch {
+      // Ignored if table creation fails or already exists
     }
-
-    // Drain tokens based on elapsed time
-    const elapsed = now - record.lastTime;
-    record.tokens = Math.max(0, record.tokens - (elapsed * this._ratePerMs));
-    record.lastTime = now;
-
-    // Check if adding this request exceeds burst limit
-    if (record.tokens + 1 > this._burst) {
-      return false; // Rate limit exceeded
-    }
-
-    record.tokens += 1;
-    return true; // Allowed
   }
 }
 
-const limiterInstance = new NginxLeakyBucket({ ratePerMinute: 90, burst: 10 });
+// Fallback in-memory leaky bucket
+const memoryClients = new Map();
+const ratePerMs = 90 / 60000;
+const ratePerMsStr = ratePerMs.toString();
+const BURST_LIMIT = 10;
 
-const threadsRateLimiter = (req, res, next) => {
-  // Skip during unit/integration tests if specified
+function memoryConsume(ip) {
+  const now = Date.now();
+  let record = memoryClients.get(ip);
+  if (!record) {
+    record = { tokens: 0, lastTime: now };
+    memoryClients.set(ip, record);
+  }
+
+  const elapsed = now - record.lastTime;
+  record.tokens = Math.max(0, record.tokens - (elapsed * ratePerMs));
+  record.lastTime = now;
+
+  if (record.tokens + 1 > BURST_LIMIT) {
+    return false;
+  }
+
+  record.tokens += 1;
+  return true;
+}
+
+const threadsRateLimiter = async (req, res, next) => {
+  // Skip rate limiting during local unit/integration test suites
   if (process.env.NODE_ENV === 'test') {
     return next();
   }
 
-  // Get Client IP (supporting proxy headers X-Forwarded-For / X-Real-IP)
+  // Extract client IP from proxy headers or direct socket
   const forwarded = req.headers['x-forwarded-for'];
   const clientIp = forwarded ? forwarded.split(',')[0].trim() : (req.headers['x-real-ip'] || req.socket?.remoteAddress || '127.0.0.1');
 
-  const allowed = limiterInstance.consume(clientIp);
+  try {
+    await ensureRateLimitTable();
+    const now = Date.now();
 
-  if (!allowed) {
-    res.setHeader('Retry-After', '1');
-    return res.status(429).json({
-      status: 'fail',
-      message: 'Too Many Requests: limit access pada endpoint /threads dan turunannya telah tercapai. Silakan coba beberapa saat lagi.',
-    });
+    const result = await pool.query(`
+      INSERT INTO rate_limits (ip, tokens, last_time)
+      VALUES ($1, 1.0, $2)
+      ON CONFLICT (ip) DO UPDATE
+      SET 
+        tokens = GREATEST(0.0, rate_limits.tokens - (($2 - rate_limits.last_time) * $3::numeric)) + 1.0,
+        last_time = $2
+      RETURNING tokens;
+    `, [clientIp, now, ratePerMsStr]);
+
+    const currentTokens = parseFloat(result.rows[0].tokens);
+
+    if (currentTokens > BURST_LIMIT) {
+      res.setHeader('Retry-After', '1');
+      return res.status(429).json({
+        status: 'fail',
+        message: 'Too Many Requests: limit access pada endpoint /threads dan turunannya telah tercapai. Silakan coba beberapa saat lagi.',
+      });
+    }
+  } catch {
+    // If database connection is unavailable, fallback to in-memory limiter
+    const allowed = memoryConsume(clientIp);
+    if (!allowed) {
+      res.setHeader('Retry-After', '1');
+      return res.status(429).json({
+        status: 'fail',
+        message: 'Too Many Requests: limit access pada endpoint /threads dan turunannya telah tercapai. Silakan coba beberapa saat lagi.',
+      });
+    }
   }
 
   return next();

@@ -1,8 +1,7 @@
-﻿/**
+/**
  * Rate Limiter Middleware for /threads and all its child routes
- * Matches Nginx configuration: `limit_req_zone $binary_remote_addr zone=threads_limit:10m rate=90r/m burst=10 nodelay;`
+ * Matches Nginx configuration: `limit_req_zone $binary_remote_addr zone=threads_limit:10m rate=90r/m;`
  * Rate: 90 requests per minute (0.0015 requests per ms)
- * Burst: 10 requests
  * Applied to `/threads` and all child routes (/threads, /threads/:id, /threads/:id/comments, etc.)
  */
 
@@ -31,7 +30,7 @@ async function ensureRateLimitTable() {
 const memoryClients = new Map();
 const ratePerMs = 90 / 60000;
 const ratePerMsStr = ratePerMs.toString();
-const BURST_LIMIT = 10;
+const BURST_LIMIT = 1;
 
 function memoryConsume(ip) {
   const now = Date.now();

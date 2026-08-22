@@ -1,4 +1,4 @@
-﻿# Konfigurasi Nginx Server Block (/etc/nginx/sites-available/default)
+# Konfigurasi Nginx Server Block (/etc/nginx/sites-available/default)
 # Menerapkan Limit Access menggunakan Nginx untuk Menghindari DDoS Attack
 
 # Definisi zona limit_req: 90 requests per menit (rate=90r/m)
@@ -26,7 +26,7 @@ server {
     # - DELETE /threads/:id/comments/:commentId/replies/:replyId
     # - PUT    /threads/:id/comments/:commentId/likes
     location /threads {
-        limit_req zone=threads_limit burst=10 nodelay;
+        limit_req zone=threads_limit;
         limit_req_status 429;
 
         proxy_pass http://127.0.0.1:5000;
